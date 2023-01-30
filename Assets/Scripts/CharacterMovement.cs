@@ -1,70 +1,38 @@
-using System.Collections;
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public class CharacterMovement : MonoBehaviour
 {
-    public float rotationSpeed = 10f;
-    public float moveSpeed = 5f;
-    public float runMultiplier = 2f;
-    public float walkAnimationThreshold = 0.1f;
-    public float runAnimationThreshold = 0.5f;
-    public float threshold;
-    
-    [SerializeField] private CharacterAnimatorController characterAnimatorController;
-    private Vector3 _movement;
-    private Rigidbody _playerRigidbody;
-    private Animator _animator;
-    private Quaternion _targetRotation;
+    [SerializeField] private float _moveSpeed = 10f;
+    [SerializeField] private float _jumpSpeed = 0.5f;
+    [SerializeField] private float _gravity = 2f;
 
-    void Start()
+    private CharacterController _characterController;
+    private Vector3 _moveDirection;
+
+    private void Awake() => _characterController = GetComponent<CharacterController>();
+
+    private void FixedUpdate()
     {
-        _playerRigidbody = GetComponent<Rigidbody>();
-        _animator = GetComponent<Animator>();
-    }
+        var horizontal = Input.GetAxis("Horizontal");
+        var vertical = Input.GetAxis("Vertical");
 
-    void Update()
-    {
-        var horizontal = Input.GetAxisRaw("Horizontal");
-        var vertical = Input.GetAxisRaw("Vertical");
+        Vector3 inputDirection = new Vector3(horizontal, 0, vertical);
+        Vector3 transformDirection = transform.TransformDirection(inputDirection);
 
-        _movement = new Vector3(horizontal, 0f, vertical).normalized;
+        Vector3 flatMovement = _moveSpeed * Time.deltaTime * transformDirection;
 
-        if (_movement.magnitude < walkAnimationThreshold)
-        {
-            characterAnimatorController.PlayIdle();
-        }
+        _moveDirection = new Vector3(flatMovement.x, _moveDirection.y, flatMovement.z);
+
+        if (PlayerJumped)
+            _moveDirection.y = _jumpSpeed;
+        else if (_characterController.isGrounded)
+            _moveDirection.y -= _gravity * Time.deltaTime;
         else
-        {
-            if (threshold < runAnimationThreshold)
-                characterAnimatorController.PlayWalk();
-            else
-                characterAnimatorController.PlayRun();
-        }
-    }
-
-    void FixedUpdate()
-    {
-        threshold = Mathf.Clamp(threshold, 0, 1);
-        if (Input.GetKey(KeyCode.LeftShift))
-        {
-            threshold += Time.fixedDeltaTime;
-            if (threshold > runAnimationThreshold)
-            {
-                _playerRigidbody.MovePosition(_playerRigidbody.position +
-                                              _movement * moveSpeed * runMultiplier * Time.fixedDeltaTime);
-            }
-        }
-        else
-        {
-            threshold -= Time.fixedDeltaTime;
-            _playerRigidbody.MovePosition(_playerRigidbody.position + _movement * moveSpeed * Time.fixedDeltaTime);
-        }
+            _moveDirection.y -= _gravity * Time.deltaTime;
         
-        if (_movement != Vector3.zero)
-        {
-            _targetRotation = Quaternion.LookRotation(_movement);
-            _playerRigidbody.rotation = Quaternion.Slerp(_playerRigidbody.rotation, _targetRotation, rotationSpeed * Time.fixedDeltaTime);
-        }
+        _characterController.Move(_moveDirection);
     }
+
+    private bool PlayerJumped => _characterController.isGrounded && Input.GetKey(KeyCode.Space);
 }

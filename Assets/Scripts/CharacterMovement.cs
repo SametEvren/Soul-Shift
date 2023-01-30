@@ -3,36 +3,30 @@ using UnityEngine;
 
 public class CharacterMovement : MonoBehaviour
 {
-    [SerializeField] private float _moveSpeed = 10f;
-    [SerializeField] private float _jumpSpeed = 0.5f;
-    [SerializeField] private float _gravity = 2f;
+    public CharacterController controller;
+    public Transform cam;
 
-    private CharacterController _characterController;
-    private Vector3 _moveDirection;
+    public float speed = 6f;
 
-    private void Awake() => _characterController = GetComponent<CharacterController>();
-
-    private void FixedUpdate()
+    public float turnSmoothTime = 0.1f;
+    private float turnSmoothVelocity;
+    
+    private void Update()
     {
-        var horizontal = Input.GetAxis("Horizontal");
-        var vertical = Input.GetAxis("Vertical");
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        float vertical = Input.GetAxisRaw("Vertical");
+        Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
 
-        Vector3 inputDirection = new Vector3(horizontal, 0, vertical);
-        Vector3 transformDirection = transform.TransformDirection(inputDirection);
+        if (direction.magnitude >= 0.1f)
+        {
+            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cam.eulerAngles.y;
+            float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothVelocity,
+                turnSmoothTime);
+            transform.rotation = Quaternion.Euler(0f,angle,0f);
 
-        Vector3 flatMovement = _moveSpeed * Time.deltaTime * transformDirection;
-
-        _moveDirection = new Vector3(flatMovement.x, _moveDirection.y, flatMovement.z);
-
-        if (PlayerJumped)
-            _moveDirection.y = _jumpSpeed;
-        else if (_characterController.isGrounded)
-            _moveDirection.y -= _gravity * Time.deltaTime;
-        else
-            _moveDirection.y -= _gravity * Time.deltaTime;
+            Vector3 moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+            controller.Move(moveDir.normalized * speed * Time.deltaTime);
+        }
         
-        _characterController.Move(_moveDirection);
     }
-
-    private bool PlayerJumped => _characterController.isGrounded && Input.GetKey(KeyCode.Space);
 }
